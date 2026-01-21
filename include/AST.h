@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <vector>
+#include <string>
 
 class ExprAST {
 public:
@@ -13,6 +14,12 @@ class NumberExprAST : public ExprAST {
 public:
     double value;
     NumberExprAST(double val) : value(val) {}
+};
+
+class VarRefAST : public ExprAST {
+public:
+    std::string name;
+    VarRefAST(std::string n) : name(std::move(n)) {}
 };
 
 class AddExprAST : public ExprAST {
@@ -51,18 +58,33 @@ public:
         : left(std::move(l)), right(std::move(r)) {}
 };
 
-class PrintStmtAST {
+// Statement types
+class StmtAST {
+public:
+    virtual ~StmtAST() = default;
+};
+
+class PrintStmtAST : public StmtAST {
 public:
     std::unique_ptr<ExprAST> expr;
     
     PrintStmtAST(std::unique_ptr<ExprAST> e) : expr(std::move(e)) {}
 };
 
+class VarDeclAST : public StmtAST {
+public:
+    std::string name;
+    std::unique_ptr<ExprAST> value;
+    
+    VarDeclAST(std::string n, std::unique_ptr<ExprAST> v)
+        : name(std::move(n)), value(std::move(v)) {}
+};
+
 class ModuleAST {
 public:
-    std::vector<std::unique_ptr<PrintStmtAST>> statements;
+    std::vector<std::unique_ptr<StmtAST>> statements;
     
-    void addStatement(std::unique_ptr<PrintStmtAST> stmt) {
+    void addStatement(std::unique_ptr<StmtAST> stmt) {
         statements.push_back(std::move(stmt));
     }
 };

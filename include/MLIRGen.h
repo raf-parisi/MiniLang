@@ -6,6 +6,8 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
 #include <memory>
+#include <map>
+#include <string>
 
 namespace mlir {
 namespace mini {
@@ -15,9 +17,12 @@ private:
     MLIRContext &context;
     OpBuilder builder;
     ModuleOp module;
+    std::map<std::string, Value> symbolTable;
     
     Value mlirGen(ExprAST &expr);
+    LogicalResult mlirGen(StmtAST &stmt);
     LogicalResult mlirGen(PrintStmtAST &stmt);
+    LogicalResult mlirGen(VarDeclAST &stmt);
 
 public:
     MLIRGenerator(MLIRContext &ctx);

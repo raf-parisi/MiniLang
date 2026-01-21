@@ -33,7 +33,12 @@ std::unique_ptr<ExprAST> Parser::parsePrimary() {
         return std::make_unique<NumberExprAST>(tok.value);
     }
     
-    std::cerr << "Expected number at line " << tok.line << std::endl;
+    if (tok.type == TOK_IDENTIFIER) {
+        advance();
+        return std::make_unique<VarRefAST>(tok.lexeme);
+    }
+    
+    std::cerr << "Expected number or identifier at line " << tok.line << std::endl;
     return nullptr;
 }
 
@@ -81,9 +86,8 @@ std::unique_ptr<ExprAST> Parser::parseExpression() {
     return parseAddition();
 }
 
-std::unique_ptr<PrintStmtAST> Parser::parseStatement() {
+std::unique_ptr<PrintStmtAST> Parser::parsePrintStmt() {
     if (!match(TOK_PRINT)) {
-        std::cerr << "Expected 'print' keyword" << std::endl;
         return nullptr;
     }
     
@@ -91,11 +95,51 @@ std::unique_ptr<PrintStmtAST> Parser::parseStatement() {
     if (!expr) return nullptr;
     
     if (!match(TOK_SEMICOLON)) {
-        std::cerr << "Expected ';' after expression" << std::endl;
+        std::cerr << "Expected ';' after print statement" << std::endl;
         return nullptr;
     }
     
     return std::make_unique<PrintStmtAST>(std::move(expr));
+}
+
+std::unique_ptr<VarDeclAST> Parser::parseVarDecl() {
+    // identifier = expression ;
+    if (!check(TOK_IDENTIFIER)) {
+        return nullptr;
+    }
+    
+    std::string varName = peek().lexeme;
+    advance();
+    
+    if (!match(TOK_ASSIGN)) {
+        std::cerr << "Expected '=' after identifier" << std::endl;
+        return nullptr;
+    }
+    
+    auto value = parseExpression();
+    if (!value) return nullptr;
+    
+    if (!match(TOK_SEMICOLON)) {
+        std::cerr << "Expected ';' after assignment" << std::endl;
+        return nullptr;
+    }
+    
+    return std::make_unique<VarDeclAST>(varName, std::move(value));
+}
+
+std::unique_ptr<StmtAST> Parser::parseStatement() {
+    // Try print statement
+    if (check(TOK_PRINT)) {
+        return parsePrintStmt();
+    }
+    
+    // Try variable declaration/assignment
+    if (check(TOK_IDENTIFIER)) {
+        return parseVarDecl();
+    }
+    
+    std::cerr << "Expected statement at line " << peek().line << std::endl;
+    return nullptr;
 }
 
 std::unique_ptr<ModuleAST> Parser::parse() {

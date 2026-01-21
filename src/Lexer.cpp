@@ -38,15 +38,17 @@ Token Lexer::number() {
 Token Lexer::identifier() {
     int startCol = column;
     std::string id;
-    while (std::isalnum(peek())) {
+    while (std::isalnum(peek()) || peek() == '_') {
         id += advance();
     }
     
+    // Check for keywords
     if (id == "print") {
         return Token(TOK_PRINT, id, 0, line, startCol);
     }
     
-    return Token(TOK_UNKNOWN, id, 0, line, startCol);
+    // Otherwise it's an identifier (variable name)
+    return Token(TOK_IDENTIFIER, id, 0, line, startCol);
 }
 
 Token Lexer::nextToken() {
@@ -62,7 +64,7 @@ Token Lexer::nextToken() {
         return number();
     }
     
-    if (std::isalpha(c)) {
+    if (std::isalpha(c) || c == '_') {
         return identifier();
     }
     
@@ -74,6 +76,7 @@ Token Lexer::nextToken() {
         case '-': return Token(TOK_MINUS, "-", 0, line, startCol);
         case '*': return Token(TOK_STAR, "*", 0, line, startCol);
         case '/': return Token(TOK_SLASH, "/", 0, line, startCol);
+        case '=': return Token(TOK_ASSIGN, "=", 0, line, startCol);
         case ';': return Token(TOK_SEMICOLON, ";", 0, line, startCol);
         default: return Token(TOK_UNKNOWN, std::string(1, c), 0, line, startCol);
     }
