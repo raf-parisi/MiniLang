@@ -31,6 +31,39 @@ Value MLIRGenerator::mlirGen(ExprAST &expr) {
         return op->getResult(0);
     }
     
+    if (auto *subExpr = dynamic_cast<SubExprAST*>(&expr)) {
+        std::cout << "    Creating sub operation" << std::endl;
+        Value left = mlirGen(*subExpr->left);
+        Value right = mlirGen(*subExpr->right);
+        if (!left || !right) return nullptr;
+        auto loc = builder.getUnknownLoc();
+        auto op = builder.create<SubOp>(loc, left, right);
+        std::cout << "    Sub created" << std::endl;
+        return op->getResult(0);
+    }
+    
+    if (auto *mulExpr = dynamic_cast<MulExprAST*>(&expr)) {
+        std::cout << "    Creating mul operation" << std::endl;
+        Value left = mlirGen(*mulExpr->left);
+        Value right = mlirGen(*mulExpr->right);
+        if (!left || !right) return nullptr;
+        auto loc = builder.getUnknownLoc();
+        auto op = builder.create<MulOp>(loc, left, right);
+        std::cout << "    Mul created" << std::endl;
+        return op->getResult(0);
+    }
+    
+    if (auto *divExpr = dynamic_cast<DivExprAST*>(&expr)) {
+        std::cout << "    Creating div operation" << std::endl;
+        Value left = mlirGen(*divExpr->left);
+        Value right = mlirGen(*divExpr->right);
+        if (!left || !right) return nullptr;
+        auto loc = builder.getUnknownLoc();
+        auto op = builder.create<DivOp>(loc, left, right);
+        std::cout << "    Div created" << std::endl;
+        return op->getResult(0);
+    }
+    
     std::cerr << "Unknown expression type" << std::endl;
     return nullptr;
 }

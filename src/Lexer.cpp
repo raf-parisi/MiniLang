@@ -71,6 +71,9 @@ Token Lexer::nextToken() {
     
     switch (c) {
         case '+': return Token(TOK_PLUS, "+", 0, line, startCol);
+        case '-': return Token(TOK_MINUS, "-", 0, line, startCol);
+        case '*': return Token(TOK_STAR, "*", 0, line, startCol);
+        case '/': return Token(TOK_SLASH, "/", 0, line, startCol);
         case ';': return Token(TOK_SEMICOLON, ";", 0, line, startCol);
         default: return Token(TOK_UNKNOWN, std::string(1, c), 0, line, startCol);
     }

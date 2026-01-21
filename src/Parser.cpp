@@ -37,14 +37,41 @@ std::unique_ptr<ExprAST> Parser::parsePrimary() {
     return nullptr;
 }
 
-std::unique_ptr<ExprAST> Parser::parseAddition() {
+std::unique_ptr<ExprAST> Parser::parseMultiplication() {
     auto left = parsePrimary();
     if (!left) return nullptr;
     
-    while (match(TOK_PLUS)) {
+    while (check(TOK_STAR) || check(TOK_SLASH)) {
+        TokenType op = peek().type;
+        advance();
+        
         auto right = parsePrimary();
         if (!right) return nullptr;
-        left = std::make_unique<AddExprAST>(std::move(left), std::move(right));
+        
+        if (op == TOK_STAR)
+            left = std::make_unique<MulExprAST>(std::move(left), std::move(right));
+        else
+            left = std::make_unique<DivExprAST>(std::move(left), std::move(right));
+    }
+    
+    return left;
+}
+
+std::unique_ptr<ExprAST> Parser::parseAddition() {
+    auto left = parseMultiplication();
+    if (!left) return nullptr;
+    
+    while (check(TOK_PLUS) || check(TOK_MINUS)) {
+        TokenType op = peek().type;
+        advance();
+        
+        auto right = parseMultiplication();
+        if (!right) return nullptr;
+        
+        if (op == TOK_PLUS)
+            left = std::make_unique<AddExprAST>(std::move(left), std::move(right));
+        else
+            left = std::make_unique<SubExprAST>(std::move(left), std::move(right));
     }
     
     return left;

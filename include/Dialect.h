@@ -26,9 +26,7 @@ public:
     }
     static void build(OpBuilder &builder, OperationState &state, double value);
     double getValue();
-    //static ParseResult parse(OpAsmParser &parser, OperationState &result);
     void print(OpAsmPrinter &p);
-    //LogicalResult verify();
 };
 
 class AddOp : public Op<AddOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult> {
@@ -39,9 +37,40 @@ public:
         return {};
     }
     static void build(OpBuilder &builder, OperationState &state, Value lhs, Value rhs);
-    //static ParseResult parse(OpAsmParser &parser, OperationState &result);
     void print(OpAsmPrinter &p);
-    //LogicalResult verify();
+};
+
+class SubOp : public Op<SubOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult> {
+public:
+    using Op::Op;
+    static StringRef getOperationName() { return "mini.sub"; }
+    static ::llvm::ArrayRef<::llvm::StringRef> getAttributeNames() {
+        return {};
+    }
+    static void build(OpBuilder &builder, OperationState &state, Value lhs, Value rhs);
+    void print(OpAsmPrinter &p);
+};
+
+class MulOp : public Op<MulOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult> {
+public:
+    using Op::Op;
+    static StringRef getOperationName() { return "mini.mul"; }
+    static ::llvm::ArrayRef<::llvm::StringRef> getAttributeNames() {
+        return {};
+    }
+    static void build(OpBuilder &builder, OperationState &state, Value lhs, Value rhs);
+    void print(OpAsmPrinter &p);
+};
+
+class DivOp : public Op<DivOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult> {
+public:
+    using Op::Op;
+    static StringRef getOperationName() { return "mini.div"; }
+    static ::llvm::ArrayRef<::llvm::StringRef> getAttributeNames() {
+        return {};
+    }
+    static void build(OpBuilder &builder, OperationState &state, Value lhs, Value rhs);
+    void print(OpAsmPrinter &p);
 };
 
 class PrintOp : public Op<PrintOp, OpTrait::OneOperand, OpTrait::ZeroResults> {
@@ -52,12 +81,10 @@ public:
         return {};
     }
     static void build(OpBuilder &builder, OperationState &state, Value input);
-    //static ParseResult parse(OpAsmParser &parser, OperationState &result);
     void print(OpAsmPrinter &p);
-    //LogicalResult verify();
 };
 
 } // namespace mini
 } // namespace mlir
 
-#endif 
+#endif

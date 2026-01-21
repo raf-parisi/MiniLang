@@ -19,8 +19,6 @@ using namespace mlir::mini;
 
 namespace {
 
-// Pass che wrappa tutte le operazioni "sciolte" in una funzione main
-// Necessario perché LLVM IR richiede che tutto il codice sia dentro funzioni
 struct WrapInMainPass : public PassWrapper<WrapInMainPass, OperationPass<ModuleOp>> {
     MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(WrapInMainPass)
     
@@ -28,8 +26,6 @@ struct WrapInMainPass : public PassWrapper<WrapInMainPass, OperationPass<ModuleO
         auto module = getOperation();
         OpBuilder builder(module.getContext());
         
-        // trova tutte le operazioni a livello modulo da spostare
-        //successivamente in main
         SmallVector<Operation*> opsToMove;
         for (auto &op : module.getBody()->getOperations()) {
             if (!isa<ModuleOp>(op) && !isa<func::FuncOp>(op)) {
@@ -39,7 +35,6 @@ struct WrapInMainPass : public PassWrapper<WrapInMainPass, OperationPass<ModuleO
         
         if (opsToMove.empty()) return;
         
-        // crea main
         builder.setInsertionPointToStart(module.getBody());
         auto loc = builder.getUnknownLoc();
         auto funcType = builder.getFunctionType({}, {});
@@ -48,12 +43,10 @@ struct WrapInMainPass : public PassWrapper<WrapInMainPass, OperationPass<ModuleO
         auto *entryBlock = mainFunc.addEntryBlock();
         builder.setInsertionPointToStart(entryBlock);
         
-        // sposta operazioni in main
         for (auto *op : opsToMove) {
             op->moveBefore(entryBlock, entryBlock->end());
         }
         
-        // termina con return
         builder.create<func::ReturnOp>(loc);
     }
     
@@ -87,6 +80,42 @@ struct AddOpLowering : public RewritePattern {
     }
 };
 
+struct SubOpLowering : public RewritePattern {
+    SubOpLowering(MLIRContext *ctx) 
+        : RewritePattern(SubOp::getOperationName(), 1, ctx) {}
+    
+    LogicalResult matchAndRewrite(Operation *op, PatternRewriter &rewriter) const override {
+        auto subOp = cast<SubOp>(op);
+        rewriter.replaceOpWithNewOp<LLVM::SubOp>(
+            op, subOp->getOperand(0), subOp->getOperand(1));
+        return success();
+    }
+};
+
+struct MulOpLowering : public RewritePattern {
+    MulOpLowering(MLIRContext *ctx) 
+        : RewritePattern(MulOp::getOperationName(), 1, ctx) {}
+    
+    LogicalResult matchAndRewrite(Operation *op, PatternRewriter &rewriter) const override {
+        auto mulOp = cast<MulOp>(op);
+        rewriter.replaceOpWithNewOp<LLVM::MulOp>(
+            op, mulOp->getOperand(0), mulOp->getOperand(1));
+        return success();
+    }
+};
+
+struct DivOpLowering : public RewritePattern {
+    DivOpLowering(MLIRContext *ctx) 
+        : RewritePattern(DivOp::getOperationName(), 1, ctx) {}
+    
+    LogicalResult matchAndRewrite(Operation *op, PatternRewriter &rewriter) const override {
+        auto divOp = cast<DivOp>(op);
+        rewriter.replaceOpWithNewOp<LLVM::SDivOp>(
+            op, divOp->getOperand(0), divOp->getOperand(1));
+        return success();
+    }
+};
+
 struct PrintOpLowering : public RewritePattern {
     PrintOpLowering(MLIRContext *ctx) 
         : RewritePattern(PrintOp::getOperationName(), 1, ctx) {}
@@ -96,7 +125,6 @@ struct PrintOpLowering : public RewritePattern {
         auto module = op->getParentOfType<ModuleOp>();
         auto loc = op->getLoc();
         
-        // trova o crea dichiarazione printf
         auto printfRef = module.lookupSymbol<LLVM::LLVMFuncOp>("printf");
         if (!printfRef) {
             OpBuilder::InsertionGuard guard(rewriter);
@@ -109,10 +137,8 @@ struct PrintOpLowering : public RewritePattern {
             printfRef = rewriter.create<LLVM::LLVMFuncOp>(loc, "printf", printfType);
         }
         
-        
         Value formatStr = getOrCreateGlobalString(loc, rewriter, "fmt", "%d\n", module);
         
-
         rewriter.replaceOpWithNewOp<LLVM::CallOp>(
             op, printfRef, ValueRange{formatStr, printOp->getOperand(0)});
         
@@ -136,7 +162,6 @@ private:
             arrayType = global.getType();
         }
         
-        
         Value globalPtr = builder.create<LLVM::AddressOfOp>(loc, 
             LLVM::LLVMPointerType::get(builder.getContext()), 
             FlatSymbolRefAttr::get(builder.getContext(), name));
@@ -154,7 +179,6 @@ private:
 std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm::LLVMContext &llvmContext) {
     MLIRContext *context = module.getContext();
     
-    // 1)wrap in main
     PassManager pm(context);
     pm.addPass(std::make_unique<WrapInMainPass>());
     if (failed(pm.run(module))) {
@@ -165,7 +189,6 @@ std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm:
     std::cout << "\n=== After wrapping in main ===" << std::endl;
     module.dump();
     
-    // 2)converti a LLVM
     LLVMTypeConverter typeConverter(context);
     RewritePatternSet patterns(context);
     ConversionTarget target(*context);
@@ -175,12 +198,13 @@ std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm:
     target.addIllegalDialect<MiniDialect>();
     target.addIllegalDialect<func::FuncDialect>();
     
-    // dialetto func
     populateFuncToLLVMConversionPatterns(typeConverter, patterns);
     
-    // patterns custom
     patterns.add<ConstantOpLowering>(context);
     patterns.add<AddOpLowering>(context);
+    patterns.add<SubOpLowering>(context);
+    patterns.add<MulOpLowering>(context);
+    patterns.add<DivOpLowering>(context);
     patterns.add<PrintOpLowering>(context);
     
     if (failed(applyFullConversion(module, target, std::move(patterns)))) {

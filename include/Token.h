@@ -8,8 +8,11 @@ enum TokenType {
     TOK_PRINT = -2,
     TOK_NUMBER = -3,
     TOK_PLUS = -4,
-    TOK_SEMICOLON = -5,
-    TOK_UNKNOWN = -6
+    TOK_MINUS = -5,
+    TOK_STAR = -6,
+    TOK_SLASH = -7,
+    TOK_SEMICOLON = -8,
+    TOK_UNKNOWN = -9
 };
 
 struct Token {
@@ -23,4 +26,4 @@ struct Token {
         : type(t), lexeme(lex), value(val), line(l), column(c) {}
 };
 
-#endif 
+#endif
