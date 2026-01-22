@@ -2,7 +2,6 @@
 #include "Parser.h"
 #include "Dialect.h"
 #include "MLIRGen.h"
-#include "Passes.h"
 #include "LLVMIRGen.h"
 
 #include "mlir/IR/MLIRContext.h"
