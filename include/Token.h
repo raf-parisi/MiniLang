@@ -14,7 +14,16 @@ enum TokenType {
     TOK_SLASH = -8,
     TOK_ASSIGN = -9,
     TOK_SEMICOLON = -10,
-    TOK_UNKNOWN = -11
+    TOK_UNKNOWN = -11,
+    
+    // Function tokens
+    TOK_FN = -12,
+    TOK_RETURN = -13,
+    TOK_LPAREN = -14,
+    TOK_RPAREN = -15,
+    TOK_LBRACE = -16,
+    TOK_RBRACE = -17,
+    TOK_COMMA = -18
 };
 
 struct Token {

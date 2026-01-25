@@ -46,8 +46,14 @@ Token Lexer::identifier() {
     if (id == "print") {
         return Token(TOK_PRINT, id, 0, line, startCol);
     }
+    if (id == "fn") {
+        return Token(TOK_FN, id, 0, line, startCol);
+    }
+    if (id == "return") {
+        return Token(TOK_RETURN, id, 0, line, startCol);
+    }
     
-    // Otherwise it's an identifier (variable name)
+    // Otherwise it's an identifier
     return Token(TOK_IDENTIFIER, id, 0, line, startCol);
 }
 
@@ -78,6 +84,11 @@ Token Lexer::nextToken() {
         case '/': return Token(TOK_SLASH, "/", 0, line, startCol);
         case '=': return Token(TOK_ASSIGN, "=", 0, line, startCol);
         case ';': return Token(TOK_SEMICOLON, ";", 0, line, startCol);
+        case '(': return Token(TOK_LPAREN, "(", 0, line, startCol);
+        case ')': return Token(TOK_RPAREN, ")", 0, line, startCol);
+        case '{': return Token(TOK_LBRACE, "{", 0, line, startCol);
+        case '}': return Token(TOK_RBRACE, "}", 0, line, startCol);
+        case ',': return Token(TOK_COMMA, ",", 0, line, startCol);
         default: return Token(TOK_UNKNOWN, std::string(1, c), 0, line, startCol);
     }
 }

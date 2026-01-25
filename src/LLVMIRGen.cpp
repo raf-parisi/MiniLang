@@ -9,9 +9,6 @@
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"
-#include "mlir/IR/SymbolTable.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Pass/PassManager.h"
 #include <iostream>
 
 using namespace mlir;
@@ -19,39 +16,39 @@ using namespace mlir::mini;
 
 namespace {
 
-struct WrapInMainPass : public PassWrapper<WrapInMainPass, OperationPass<ModuleOp>> {
-    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(WrapInMainPass)
+struct MiniFuncOpLowering : public OpRewritePattern<mini::FuncOp> {
+    using OpRewritePattern<mini::FuncOp>::OpRewritePattern;
     
-    void runOnOperation() override {
-        auto module = getOperation();
-        OpBuilder builder(module.getContext());
+    LogicalResult matchAndRewrite(mini::FuncOp op, PatternRewriter &rewriter) const override {
+        auto funcType = op.getFunctionType();
+        auto funcOp = rewriter.create<func::FuncOp>(
+            op.getLoc(), op.getName(), funcType);
         
-        SmallVector<Operation*> opsToMove;
-        for (auto &op : module.getBody()->getOperations()) {
-            if (!isa<ModuleOp>(op) && !isa<func::FuncOp>(op)) {
-                opsToMove.push_back(&op);
-            }
-        }
-        
-        if (opsToMove.empty()) return;
-        
-        builder.setInsertionPointToStart(module.getBody());
-        auto loc = builder.getUnknownLoc();
-        auto funcType = builder.getFunctionType({}, {});
-        auto mainFunc = builder.create<func::FuncOp>(loc, "main", funcType);
-        
-        auto *entryBlock = mainFunc.addEntryBlock();
-        builder.setInsertionPointToStart(entryBlock);
-        
-        for (auto *op : opsToMove) {
-            op->moveBefore(entryBlock, entryBlock->end());
-        }
-        
-        builder.create<func::ReturnOp>(loc);
+        rewriter.inlineRegionBefore(op.getBody(), funcOp.getBody(), funcOp.end());
+        rewriter.eraseOp(op);
+        return success();
     }
+};
+
+struct MiniCallOpLowering : public OpRewritePattern<mini::CallOp> {
+    using OpRewritePattern<mini::CallOp>::OpRewritePattern;
     
-    StringRef getArgument() const final { return "wrap-in-main"; }
-    StringRef getDescription() const final { return "Wrap module-level ops in main function"; }
+    LogicalResult matchAndRewrite(mini::CallOp op, PatternRewriter &rewriter) const override {
+        auto callOp = rewriter.create<func::CallOp>(
+            op.getLoc(), op.getCallee(), op->getResult(0).getType(), op->getOperands());
+        
+        rewriter.replaceOp(op, callOp.getResults());
+        return success();
+    }
+};
+
+struct MiniReturnOpLowering : public OpRewritePattern<mini::ReturnOp> {
+    using OpRewritePattern<mini::ReturnOp>::OpRewritePattern;
+    
+    LogicalResult matchAndRewrite(mini::ReturnOp op, PatternRewriter &rewriter) const override {
+        rewriter.replaceOpWithNewOp<func::ReturnOp>(op, op->getOperands());
+        return success();
+    }
 };
 
 struct ConstantOpLowering : public RewritePattern {
@@ -179,41 +176,44 @@ private:
 std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm::LLVMContext &llvmContext) {
     MLIRContext *context = module.getContext();
     
-    PassManager pm(context);
-    pm.addPass(std::make_unique<WrapInMainPass>());
-    if (failed(pm.run(module))) {
-        std::cerr << "Failed to wrap in main" << std::endl;
-        return nullptr;
+    // Step 1: Lower Mini → Func
+    {
+        RewritePatternSet patterns(context);
+        ConversionTarget target(*context);
+        
+        target.addLegalDialect<func::FuncDialect>();
+        target.addLegalOp<ModuleOp>();
+        target.addLegalOp<ConstantOp, AddOp, SubOp, MulOp, DivOp, PrintOp>();
+        target.addIllegalOp<mini::FuncOp, mini::CallOp, mini::ReturnOp>();
+        
+        patterns.add<MiniFuncOpLowering, MiniCallOpLowering, MiniReturnOpLowering>(context);
+        
+        if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
+            std::cerr << "Failed to lower Mini functions to Func dialect" << std::endl;
+            return nullptr;
+        }
     }
     
-    std::cout << "\n=== After wrapping in main ===" << std::endl;
-    module.dump();
-    
-    LLVMTypeConverter typeConverter(context);
-    RewritePatternSet patterns(context);
-    ConversionTarget target(*context);
-    
-    target.addLegalOp<ModuleOp>();
-    target.addLegalDialect<LLVM::LLVMDialect>();
-    target.addIllegalDialect<MiniDialect>();
-    target.addIllegalDialect<func::FuncDialect>();
-    
-    populateFuncToLLVMConversionPatterns(typeConverter, patterns);
-    
-    patterns.add<ConstantOpLowering>(context);
-    patterns.add<AddOpLowering>(context);
-    patterns.add<SubOpLowering>(context);
-    patterns.add<MulOpLowering>(context);
-    patterns.add<DivOpLowering>(context);
-    patterns.add<PrintOpLowering>(context);
-    
-    if (failed(applyFullConversion(module, target, std::move(patterns)))) {
-        std::cerr << "Failed to convert to LLVM dialect" << std::endl;
-        return nullptr;
+    // Step 2: Lower Everything → LLVM
+    {
+        LLVMTypeConverter typeConverter(context);
+        RewritePatternSet patterns(context);
+        ConversionTarget target(*context);
+        
+        target.addLegalOp<ModuleOp>();
+        target.addLegalDialect<LLVM::LLVMDialect>();
+        target.addIllegalDialect<MiniDialect>();
+        target.addIllegalDialect<func::FuncDialect>();
+        
+        populateFuncToLLVMConversionPatterns(typeConverter, patterns);
+        patterns.add<ConstantOpLowering, AddOpLowering, SubOpLowering, 
+                     MulOpLowering, DivOpLowering, PrintOpLowering>(context);
+        
+        if (failed(applyFullConversion(module, target, std::move(patterns)))) {
+            std::cerr << "Failed to convert to LLVM dialect" << std::endl;
+            return nullptr;
+        }
     }
-    
-    std::cout << "\n=== After LLVM lowering ===" << std::endl;
-    module.dump();
     
     return translateModuleToLLVMIR(module, llvmContext);
 }

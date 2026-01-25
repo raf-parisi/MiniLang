@@ -58,6 +58,15 @@ public:
         : left(std::move(l)), right(std::move(r)) {}
 };
 
+class CallExprAST : public ExprAST {
+public:
+    std::string callee;
+    std::vector<std::unique_ptr<ExprAST>> args;
+    
+    CallExprAST(std::string name, std::vector<std::unique_ptr<ExprAST>> arguments)
+        : callee(std::move(name)), args(std::move(arguments)) {}
+};
+
 // Statement types
 class StmtAST {
 public:
@@ -80,9 +89,31 @@ public:
         : name(std::move(n)), value(std::move(v)) {}
 };
 
+class ReturnStmtAST : public StmtAST {
+public:
+    std::unique_ptr<ExprAST> value;
+    
+    ReturnStmtAST(std::unique_ptr<ExprAST> v) : value(std::move(v)) {}
+};
+
+class FunctionAST {
+public:
+    std::string name;
+    std::vector<std::string> params;
+    std::vector<std::unique_ptr<StmtAST>> body;
+    
+    FunctionAST(std::string n, std::vector<std::string> p, std::vector<std::unique_ptr<StmtAST>> b)
+        : name(std::move(n)), params(std::move(p)), body(std::move(b)) {}
+};
+
 class ModuleAST {
 public:
+    std::vector<std::unique_ptr<FunctionAST>> functions;
     std::vector<std::unique_ptr<StmtAST>> statements;
+    
+    void addFunction(std::unique_ptr<FunctionAST> func) {
+        functions.push_back(std::move(func));
+    }
     
     void addStatement(std::unique_ptr<StmtAST> stmt) {
         statements.push_back(std::move(stmt));

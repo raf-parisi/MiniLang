@@ -20,9 +20,14 @@ private:
     std::unique_ptr<ExprAST> parseAddition();
     std::unique_ptr<ExprAST> parseMultiplication();
     std::unique_ptr<ExprAST> parsePrimary();
+    std::unique_ptr<ExprAST> parseCallOrVar();
+    
     std::unique_ptr<StmtAST> parseStatement();
     std::unique_ptr<PrintStmtAST> parsePrintStmt();
     std::unique_ptr<VarDeclAST> parseVarDecl();
+    std::unique_ptr<ReturnStmtAST> parseReturnStmt();
+    
+    std::unique_ptr<FunctionAST> parseFunctionDef();
 
 public:
     Parser(const std::vector<Token>& toks);
