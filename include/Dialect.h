@@ -67,6 +67,27 @@ public:
     void print(OpAsmPrinter &p);
 };
 
+class CmpOp : public Op<CmpOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult> {
+public:
+    using Op::Op;
+    static StringRef getOperationName() { return "mini.cmp"; }
+    
+    static constexpr ::llvm::StringLiteral getAttributeNamePredicate() { 
+        return ::llvm::StringLiteral("predicate"); 
+    }
+    
+    static ::llvm::ArrayRef<::llvm::StringRef> getAttributeNames() {
+        static ::llvm::StringRef attrNames[] = {getAttributeNamePredicate()};
+        return ::llvm::ArrayRef(attrNames);
+    }
+    
+    static void build(OpBuilder &builder, OperationState &state, 
+                     StringRef predicate, Value lhs, Value rhs);
+    
+    StringRef getPredicate();
+    void print(OpAsmPrinter &p);
+};
+
 class PrintOp : public Op<PrintOp, OpTrait::OneOperand, OpTrait::ZeroResults> {
 public:
     using Op::Op;

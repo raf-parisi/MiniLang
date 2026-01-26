@@ -8,6 +8,8 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "llvm/Support/SourceMgr.h"
@@ -60,6 +62,10 @@ int main(int argc, char **argv) {
     std::cout << "LLVM Dialect loaded" << std::endl;
     context.getOrLoadDialect<mlir::func::FuncDialect>();
     std::cout << "Func Dialect loaded" << std::endl;
+    context.getOrLoadDialect<mlir::scf::SCFDialect>();
+    std::cout << "SCF Dialect loaded" << std::endl;
+    context.getOrLoadDialect<mlir::cf::ControlFlowDialect>();
+    std::cout << "ControlFlow Dialect loaded" << std::endl;
     context.getOrLoadDialect<mlir::mini::MiniDialect>();
     std::cout << "Mini Dialect loaded" << std::endl;
     
@@ -76,16 +82,6 @@ int main(int argc, char **argv) {
     
     std::cout << "\n=== Generated MLIR ===" << std::endl;
     module.dump();
-    
-    // bug per ora
-    // mlir::PassManager pm(&context);
-    // pm.addPass(mlir::mini::createConstantFoldingPass());
-    // if (mlir::failed(pm.run(module))) {
-    //     std::cerr << "MLIR passes failed" << std::endl;
-    //     return 1;
-    // }
-    // std::cout << "\n=== Optimized MLIR ===" << std::endl;
-    // module.dump();
     
     // LLVM IR Generation
     llvm::LLVMContext llvmContext;

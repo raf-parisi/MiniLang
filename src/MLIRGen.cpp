@@ -1,6 +1,7 @@
 #include "MLIRGen.h"
 #include "Dialect.h"
 #include "mlir/IR/Verifier.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include <iostream>
 
 using namespace mlir;
@@ -97,6 +98,47 @@ Value MLIRGenerator::mlirGen(ExprAST &expr) {
         return op->getResult(0);
     }
     
+    // Comparison operations
+    if (auto *cmpExpr = dynamic_cast<CmpLTExprAST*>(&expr)) {
+        Value left = mlirGen(*cmpExpr->left);
+        Value right = mlirGen(*cmpExpr->right);
+        if (!left || !right) return nullptr;
+        
+        auto loc = builder.getUnknownLoc();
+        auto op = builder.create<CmpOp>(loc, "slt", left, right);
+        return op->getResult(0);
+    }
+    
+    if (auto *cmpExpr = dynamic_cast<CmpGTExprAST*>(&expr)) {
+        Value left = mlirGen(*cmpExpr->left);
+        Value right = mlirGen(*cmpExpr->right);
+        if (!left || !right) return nullptr;
+        
+        auto loc = builder.getUnknownLoc();
+        auto op = builder.create<CmpOp>(loc, "sgt", left, right);
+        return op->getResult(0);
+    }
+    
+    if (auto *cmpExpr = dynamic_cast<CmpEQExprAST*>(&expr)) {
+        Value left = mlirGen(*cmpExpr->left);
+        Value right = mlirGen(*cmpExpr->right);
+        if (!left || !right) return nullptr;
+        
+        auto loc = builder.getUnknownLoc();
+        auto op = builder.create<CmpOp>(loc, "eq", left, right);
+        return op->getResult(0);
+    }
+    
+    if (auto *cmpExpr = dynamic_cast<CmpNEQExprAST*>(&expr)) {
+        Value left = mlirGen(*cmpExpr->left);
+        Value right = mlirGen(*cmpExpr->right);
+        if (!left || !right) return nullptr;
+        
+        auto loc = builder.getUnknownLoc();
+        auto op = builder.create<CmpOp>(loc, "ne", left, right);
+        return op->getResult(0);
+    }
+    
     if (auto *callExpr = dynamic_cast<CallExprAST*>(&expr)) {
         // Look up function
         auto it = functionTable.find(callExpr->callee);
@@ -145,6 +187,9 @@ LogicalResult MLIRGenerator::mlirGen(StmtAST &stmt) {
     if (auto *returnStmt = dynamic_cast<ReturnStmtAST*>(&stmt)) {
         return mlirGen(*returnStmt);
     }
+    if (auto *ifStmt = dynamic_cast<IfStmtAST*>(&stmt)) {
+        return mlirGen(*ifStmt);
+    }
     
     std::cerr << "Unknown statement type" << std::endl;
     return failure();
@@ -174,6 +219,45 @@ LogicalResult MLIRGenerator::mlirGen(ReturnStmtAST &stmt) {
     
     auto loc = builder.getUnknownLoc();
     builder.create<mini::ReturnOp>(loc, returnValue);
+    return success();
+}
+
+LogicalResult MLIRGenerator::mlirGen(IfStmtAST &stmt) {
+    auto loc = builder.getUnknownLoc();
+    
+    Value condition = mlirGen(*stmt.condition);
+    if (!condition) {
+        return failure();
+    }
+    
+    auto ifOp = builder.create<scf::IfOp>(
+        loc,
+        TypeRange{},
+        condition,
+        !stmt.elseBody.empty()
+    );
+    
+    OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToStart(&ifOp.getThenRegion().front());
+    
+    // Generate then block
+    for (auto &s : stmt.thenBody) {
+        if (failed(mlirGen(*s))) {
+            return failure();
+        }
+    }
+    
+    if (!stmt.elseBody.empty()) {
+        builder.setInsertionPointToStart(&ifOp.getElseRegion().front());
+        
+        // Generate else block
+        for (auto &s : stmt.elseBody) {
+            if (failed(mlirGen(*s))) {
+                return failure();
+            }
+        }
+    }
+    
     return success();
 }
 

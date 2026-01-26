@@ -58,6 +58,43 @@ public:
         : left(std::move(l)), right(std::move(r)) {}
 };
 
+// Comparison expressions
+class CmpLTExprAST : public ExprAST {
+public:
+    std::unique_ptr<ExprAST> left;
+    std::unique_ptr<ExprAST> right;
+    
+    CmpLTExprAST(std::unique_ptr<ExprAST> l, std::unique_ptr<ExprAST> r)
+        : left(std::move(l)), right(std::move(r)) {}
+};
+
+class CmpGTExprAST : public ExprAST {
+public:
+    std::unique_ptr<ExprAST> left;
+    std::unique_ptr<ExprAST> right;
+    
+    CmpGTExprAST(std::unique_ptr<ExprAST> l, std::unique_ptr<ExprAST> r)
+        : left(std::move(l)), right(std::move(r)) {}
+};
+
+class CmpEQExprAST : public ExprAST {
+public:
+    std::unique_ptr<ExprAST> left;
+    std::unique_ptr<ExprAST> right;
+    
+    CmpEQExprAST(std::unique_ptr<ExprAST> l, std::unique_ptr<ExprAST> r)
+        : left(std::move(l)), right(std::move(r)) {}
+};
+
+class CmpNEQExprAST : public ExprAST {
+public:
+    std::unique_ptr<ExprAST> left;
+    std::unique_ptr<ExprAST> right;
+    
+    CmpNEQExprAST(std::unique_ptr<ExprAST> l, std::unique_ptr<ExprAST> r)
+        : left(std::move(l)), right(std::move(r)) {}
+};
+
 class CallExprAST : public ExprAST {
 public:
     std::string callee;
@@ -94,6 +131,20 @@ public:
     std::unique_ptr<ExprAST> value;
     
     ReturnStmtAST(std::unique_ptr<ExprAST> v) : value(std::move(v)) {}
+};
+
+class IfStmtAST : public StmtAST {
+public:
+    std::unique_ptr<ExprAST> condition;
+    std::vector<std::unique_ptr<StmtAST>> thenBody;
+    std::vector<std::unique_ptr<StmtAST>> elseBody;
+    
+    IfStmtAST(std::unique_ptr<ExprAST> cond,
+              std::vector<std::unique_ptr<StmtAST>> thenStmts,
+              std::vector<std::unique_ptr<StmtAST>> elseStmts = {})
+        : condition(std::move(cond)),
+          thenBody(std::move(thenStmts)),
+          elseBody(std::move(elseStmts)) {}
 };
 
 class FunctionAST {

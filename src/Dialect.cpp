@@ -12,7 +12,7 @@ MiniDialect::MiniDialect(MLIRContext *context)
 }
 
 void MiniDialect::initialize() {
-    addOperations<ConstantOp, AddOp, SubOp, MulOp, DivOp, PrintOp, 
+    addOperations<ConstantOp, AddOp, SubOp, MulOp, DivOp, CmpOp, PrintOp, 
                   FuncOp, CallOp, ReturnOp>();
 }
 
@@ -68,6 +68,23 @@ void DivOp::build(OpBuilder &builder, OperationState &state, Value lhs, Value rh
 
 void DivOp::print(OpAsmPrinter &p) {
     p << " " << (*this)->getOperand(0) << ", " << (*this)->getOperand(1) 
+      << " : " << (*this)->getResult(0).getType();
+}
+
+void CmpOp::build(OpBuilder &builder, OperationState &state, 
+                  StringRef predicate, Value lhs, Value rhs) {
+    state.addAttribute(getAttributeNamePredicate(), builder.getStringAttr(predicate));
+    state.addOperands({lhs, rhs});
+    state.addTypes(builder.getI1Type());
+}
+
+StringRef CmpOp::getPredicate() {
+    return (*this)->getAttrOfType<StringAttr>(getAttributeNamePredicate()).getValue();
+}
+
+void CmpOp::print(OpAsmPrinter &p) {
+    p << " \"" << getPredicate() << "\", " 
+      << (*this)->getOperand(0) << ", " << (*this)->getOperand(1)
       << " : " << (*this)->getResult(0).getType();
 }
 

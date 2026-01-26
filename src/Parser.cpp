@@ -123,8 +123,32 @@ std::unique_ptr<ExprAST> Parser::parseAddition() {
     return left;
 }
 
+std::unique_ptr<ExprAST> Parser::parseComparison() {
+    auto left = parseAddition();
+    if (!left) return nullptr;
+    
+    if (check(TOK_LT) || check(TOK_GT) || check(TOK_EQ) || check(TOK_NEQ)) {
+        TokenType op = peek().type;
+        advance();
+        
+        auto right = parseAddition();
+        if (!right) return nullptr;
+        
+        if (op == TOK_LT)
+            return std::make_unique<CmpLTExprAST>(std::move(left), std::move(right));
+        if (op == TOK_GT)
+            return std::make_unique<CmpGTExprAST>(std::move(left), std::move(right));
+        if (op == TOK_EQ)
+            return std::make_unique<CmpEQExprAST>(std::move(left), std::move(right));
+        if (op == TOK_NEQ)
+            return std::make_unique<CmpNEQExprAST>(std::move(left), std::move(right));
+    }
+    
+    return left;
+}
+
 std::unique_ptr<ExprAST> Parser::parseExpression() {
-    return parseAddition();
+    return parseComparison();
 }
 
 std::unique_ptr<PrintStmtAST> Parser::parsePrintStmt() {
@@ -177,7 +201,77 @@ std::unique_ptr<ReturnStmtAST> Parser::parseReturnStmt() {
     return std::make_unique<ReturnStmtAST>(std::move(expr));
 }
 
+std::unique_ptr<IfStmtAST> Parser::parseIfStmt() {
+    if (!match(TOK_IF)) return nullptr;
+    
+    if (!match(TOK_LPAREN)) {
+        std::cerr << "Expected '(' after 'if'" << std::endl;
+        return nullptr;
+    }
+    
+    auto condition = parseExpression();
+    if (!condition) {
+        std::cerr << "Expected condition in if statement" << std::endl;
+        return nullptr;
+    }
+    
+    if (!match(TOK_RPAREN)) {
+        std::cerr << "Expected ')' after condition" << std::endl;
+        return nullptr;
+    }
+    
+    if (!match(TOK_LBRACE)) {
+        std::cerr << "Expected '{' after if condition" << std::endl;
+        return nullptr;
+    }
+    
+    std::vector<std::unique_ptr<StmtAST>> thenBody;
+    while (!check(TOK_RBRACE) && !check(TOK_EOF)) {
+        auto stmt = parseStatement();
+        if (!stmt) {
+            std::cerr << "Failed to parse statement in if body" << std::endl;
+            return nullptr;
+        }
+        thenBody.push_back(std::move(stmt));
+    }
+    
+    if (!match(TOK_RBRACE)) {
+        std::cerr << "Expected '}' after if body" << std::endl;
+        return nullptr;
+    }
+    
+    std::vector<std::unique_ptr<StmtAST>> elseBody;
+    if (match(TOK_ELSE)) {
+        if (!match(TOK_LBRACE)) {
+            std::cerr << "Expected '{' after 'else'" << std::endl;
+            return nullptr;
+        }
+        
+        while (!check(TOK_RBRACE) && !check(TOK_EOF)) {
+            auto stmt = parseStatement();
+            if (!stmt) {
+                std::cerr << "Failed to parse statement in else body" << std::endl;
+                return nullptr;
+            }
+            elseBody.push_back(std::move(stmt));
+        }
+        
+        if (!match(TOK_RBRACE)) {
+            std::cerr << "Expected '}' after else body" << std::endl;
+            return nullptr;
+        }
+    }
+    
+    return std::make_unique<IfStmtAST>(std::move(condition), 
+                                       std::move(thenBody), 
+                                       std::move(elseBody));
+}
+
 std::unique_ptr<StmtAST> Parser::parseStatement() {
+    if (check(TOK_IF)) {
+        return parseIfStmt();
+    }
+    
     if (check(TOK_RETURN)) {
         return parseReturnStmt();
     }

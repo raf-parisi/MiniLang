@@ -51,6 +51,10 @@ target_link_libraries(minilang
     MLIRLLVMDialect
     MLIRFuncDialect
     MLIRFuncToLLVM
+    MLIRSCFDialect
+    MLIRSCFToControlFlow
+    MLIRControlFlowDialect
+    MLIRControlFlowToLLVM
     MLIRTargetLLVMIRExport
     MLIRToLLVMIRTranslationRegistration
     LLVMCore

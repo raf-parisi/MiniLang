@@ -17,6 +17,7 @@ private:
     bool check(TokenType type);
     
     std::unique_ptr<ExprAST> parseExpression();
+    std::unique_ptr<ExprAST> parseComparison();
     std::unique_ptr<ExprAST> parseAddition();
     std::unique_ptr<ExprAST> parseMultiplication();
     std::unique_ptr<ExprAST> parsePrimary();
@@ -26,6 +27,7 @@ private:
     std::unique_ptr<PrintStmtAST> parsePrintStmt();
     std::unique_ptr<VarDeclAST> parseVarDecl();
     std::unique_ptr<ReturnStmtAST> parseReturnStmt();
+    std::unique_ptr<IfStmtAST> parseIfStmt();
     
     std::unique_ptr<FunctionAST> parseFunctionDef();
 

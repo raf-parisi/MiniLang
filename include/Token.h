@@ -23,7 +23,15 @@ enum TokenType {
     TOK_RPAREN = -15,
     TOK_LBRACE = -16,
     TOK_RBRACE = -17,
-    TOK_COMMA = -18
+    TOK_COMMA = -18,
+    
+    // Conditional tokens
+    TOK_IF = -19,
+    TOK_ELSE = -20,
+    TOK_LT = -21,
+    TOK_GT = -22,
+    TOK_EQ = -23,
+    TOK_NEQ = -24
 };
 
 struct Token {

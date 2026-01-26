@@ -2,13 +2,18 @@
 #include "Dialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
+#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
+#include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
 #include <iostream>
 
 using namespace mlir;
@@ -113,6 +118,33 @@ struct DivOpLowering : public RewritePattern {
     }
 };
 
+struct CmpOpLowering : public RewritePattern {
+    CmpOpLowering(MLIRContext *ctx) 
+        : RewritePattern(CmpOp::getOperationName(), 1, ctx) {}
+    
+    LogicalResult matchAndRewrite(Operation *op, PatternRewriter &rewriter) const override {
+        auto cmpOp = cast<CmpOp>(op);
+        auto predStr = cmpOp.getPredicate();
+        
+        LLVM::ICmpPredicate pred;
+        if (predStr == "slt") {
+            pred = LLVM::ICmpPredicate::slt;
+        } else if (predStr == "sgt") {
+            pred = LLVM::ICmpPredicate::sgt;
+        } else if (predStr == "eq") {
+            pred = LLVM::ICmpPredicate::eq;
+        } else if (predStr == "ne") {
+            pred = LLVM::ICmpPredicate::ne;
+        } else {
+            return failure();
+        }
+        
+        rewriter.replaceOpWithNewOp<LLVM::ICmpOp>(
+            op, pred, cmpOp->getOperand(0), cmpOp->getOperand(1));
+        return success();
+    }
+};
+
 struct PrintOpLowering : public RewritePattern {
     PrintOpLowering(MLIRContext *ctx) 
         : RewritePattern(PrintOp::getOperationName(), 1, ctx) {}
@@ -176,14 +208,15 @@ private:
 std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm::LLVMContext &llvmContext) {
     MLIRContext *context = module.getContext();
     
-    // Step 1: Lower Mini → Func
+    // Step 1: Convert Mini functions to Func dialect
     {
         RewritePatternSet patterns(context);
         ConversionTarget target(*context);
         
         target.addLegalDialect<func::FuncDialect>();
+        target.addLegalDialect<scf::SCFDialect>();
         target.addLegalOp<ModuleOp>();
-        target.addLegalOp<ConstantOp, AddOp, SubOp, MulOp, DivOp, PrintOp>();
+        target.addLegalOp<ConstantOp, AddOp, SubOp, MulOp, DivOp, CmpOp, PrintOp>();
         target.addIllegalOp<mini::FuncOp, mini::CallOp, mini::ReturnOp>();
         
         patterns.add<MiniFuncOpLowering, MiniCallOpLowering, MiniReturnOpLowering>(context);
@@ -194,7 +227,21 @@ std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm:
         }
     }
     
-    // Step 2: Lower Everything → LLVM
+    std::cout << "\n=== After Mini to Func conversion ===" << std::endl;
+    module.dump();
+    
+    // Step 2: Convert SCF to Control Flow
+    PassManager pm(context);
+    pm.addPass(createConvertSCFToCFPass());
+    if (failed(pm.run(module))) {
+        std::cerr << "Failed to convert SCF to CF" << std::endl;
+        return nullptr;
+    }
+    
+    std::cout << "\n=== After SCF to CF conversion ===" << std::endl;
+    module.dump();
+    
+    // Step 3: Convert everything to LLVM dialect
     {
         LLVMTypeConverter typeConverter(context);
         RewritePatternSet patterns(context);
@@ -206,14 +253,18 @@ std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm:
         target.addIllegalDialect<func::FuncDialect>();
         
         populateFuncToLLVMConversionPatterns(typeConverter, patterns);
+        cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
         patterns.add<ConstantOpLowering, AddOpLowering, SubOpLowering, 
-                     MulOpLowering, DivOpLowering, PrintOpLowering>(context);
+                     MulOpLowering, DivOpLowering, CmpOpLowering, PrintOpLowering>(context);
         
         if (failed(applyFullConversion(module, target, std::move(patterns)))) {
             std::cerr << "Failed to convert to LLVM dialect" << std::endl;
             return nullptr;
         }
     }
+    
+    std::cout << "\n=== After LLVM lowering ===" << std::endl;
+    module.dump();
     
     return translateModuleToLLVMIR(module, llvmContext);
 }
