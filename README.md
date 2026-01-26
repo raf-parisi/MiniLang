@@ -1,6 +1,6 @@
 # MiniLang
 
-Compilatore giocattolo basato sull'infrastruttura MLIR/LLVM. Implementazione dell'intera pipeline di compilazione: frontend (lexing, parsing), generazione di rappresentazioni intermedie (AST, MLIR), ottimizzazioni e lowering fino a LLVM IR eseguibile.
+Compilatore giocattolo basato sull'infrastruttura MLIR/LLVM. Implementazione dell'intera pipeline di compilazione: frontend (lexing, parsing), generazione di rappresentazioni intermedie, ottimizzazioni e lowering fino a LLVM IR eseguibile.
 
 ## Architettura
 ```
