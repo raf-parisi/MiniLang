@@ -133,6 +133,13 @@ public:
     ReturnStmtAST(std::unique_ptr<ExprAST> v) : value(std::move(v)) {}
 };
 
+class ExprStmtAST : public StmtAST {
+public:
+    std::unique_ptr<ExprAST> expr;
+    
+    ExprStmtAST(std::unique_ptr<ExprAST> e) : expr(std::move(e)) {}
+};
+
 class IfStmtAST : public StmtAST {
 public:
     std::unique_ptr<ExprAST> condition;

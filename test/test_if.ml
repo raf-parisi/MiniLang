@@ -30,3 +30,15 @@ fn compare(a,b){
     }
     return 0;
 }
+
+fn nestedIf(){
+    if(5){
+        if(4){
+            print 4;
+        }
+    }
+    return 0;
+}
+
+compare(2,3);
+nestedIf();

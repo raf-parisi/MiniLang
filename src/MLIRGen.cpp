@@ -190,6 +190,12 @@ LogicalResult MLIRGenerator::mlirGen(StmtAST &stmt) {
     if (auto *ifStmt = dynamic_cast<IfStmtAST*>(&stmt)) {
         return mlirGen(*ifStmt);
     }
+    if (auto *exprStmt = dynamic_cast<ExprStmtAST*>(&stmt)) {
+        // Just evaluate the expression and discard the result
+        Value result = mlirGen(*exprStmt->expr);
+        if (!result) return failure();
+        return success();
+    }
     
     std::cerr << "Unknown statement type" << std::endl;
     return failure();
@@ -228,6 +234,13 @@ LogicalResult MLIRGenerator::mlirGen(IfStmtAST &stmt) {
     Value condition = mlirGen(*stmt.condition);
     if (!condition) {
         return failure();
+    }
+    
+    // Se la condizione è i32, convertila in i1 confrontando con 0
+    if (condition.getType().isInteger(32)) {
+        auto zero = builder.create<ConstantOp>(loc, 0.0);
+        auto cmpOp = builder.create<CmpOp>(loc, "ne", condition, zero->getResult(0));
+        condition = cmpOp->getResult(0);
     }
     
     auto ifOp = builder.create<scf::IfOp>(

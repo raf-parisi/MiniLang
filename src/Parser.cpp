@@ -190,6 +190,14 @@ std::unique_ptr<VarDeclAST> Parser::parseVarDecl() {
 std::unique_ptr<ReturnStmtAST> Parser::parseReturnStmt() {
     if (!match(TOK_RETURN)) return nullptr;
     
+    // Check for empty return (return;)
+    if (check(TOK_SEMICOLON)) {
+        advance();
+        // Create a return with value 0
+        auto zero = std::make_unique<NumberExprAST>(0.0);
+        return std::make_unique<ReturnStmtAST>(std::move(zero));
+    }
+    
     auto expr = parseExpression();
     if (!expr) return nullptr;
     
@@ -281,7 +289,27 @@ std::unique_ptr<StmtAST> Parser::parseStatement() {
     }
     
     if (check(TOK_IDENTIFIER)) {
-        return parseVarDecl();
+        // Look ahead to see if it's a function call or variable declaration
+        size_t savedPos = pos;
+        advance(); // consume identifier
+        
+        if (check(TOK_LPAREN)) {
+            // It's a function call - parse as expression statement
+            pos = savedPos; // reset
+            auto expr = parseExpression();
+            if (!expr) return nullptr;
+            
+            if (!match(TOK_SEMICOLON)) {
+                std::cerr << "Expected ';' after expression statement" << std::endl;
+                return nullptr;
+            }
+            
+            return std::make_unique<ExprStmtAST>(std::move(expr));
+        } else {
+            // It's a variable declaration
+            pos = savedPos; // reset
+            return parseVarDecl();
+        }
     }
     
     std::cerr << "Expected statement at line " << peek().line << std::endl;
