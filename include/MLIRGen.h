@@ -42,6 +42,7 @@ private:
     LogicalResult mlirGen(VarDeclAST &stmt);
     LogicalResult mlirGen(ReturnStmtAST &stmt);
     LogicalResult mlirGen(IfStmtAST &stmt);
+    LogicalResult mlirGen(WhileStmtAST &stmt);
     
     // Function code generation
     LogicalResult mlirGen(FunctionAST &func);

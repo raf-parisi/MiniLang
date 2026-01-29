@@ -31,7 +31,10 @@ enum TokenType {
     TOK_LT = -21,
     TOK_GT = -22,
     TOK_EQ = -23,
-    TOK_NEQ = -24
+    TOK_NEQ = -24,
+    
+    // Loop tokens
+    TOK_WHILE = -25
 };
 
 struct Token {

@@ -275,7 +275,53 @@ std::unique_ptr<IfStmtAST> Parser::parseIfStmt() {
                                        std::move(elseBody));
 }
 
+std::unique_ptr<WhileStmtAST> Parser::parseWhileStmt() {
+    if (!match(TOK_WHILE)) return nullptr;
+    
+    if (!match(TOK_LPAREN)) {
+        std::cerr << "Expected '(' after 'while'" << std::endl;
+        return nullptr;
+    }
+    
+    auto condition = parseExpression();
+    if (!condition) {
+        std::cerr << "Expected condition in while statement" << std::endl;
+        return nullptr;
+    }
+    
+    if (!match(TOK_RPAREN)) {
+        std::cerr << "Expected ')' after condition" << std::endl;
+        return nullptr;
+    }
+    
+    if (!match(TOK_LBRACE)) {
+        std::cerr << "Expected '{' after while condition" << std::endl;
+        return nullptr;
+    }
+    
+    std::vector<std::unique_ptr<StmtAST>> body;
+    while (!check(TOK_RBRACE) && !check(TOK_EOF)) {
+        auto stmt = parseStatement();
+        if (!stmt) {
+            std::cerr << "Failed to parse statement in while body" << std::endl;
+            return nullptr;
+        }
+        body.push_back(std::move(stmt));
+    }
+    
+    if (!match(TOK_RBRACE)) {
+        std::cerr << "Expected '}' after while body" << std::endl;
+        return nullptr;
+    }
+    
+    return std::make_unique<WhileStmtAST>(std::move(condition), std::move(body));
+}
+
 std::unique_ptr<StmtAST> Parser::parseStatement() {
+    if (check(TOK_WHILE)) {
+        return parseWhileStmt();
+    }
+    
     if (check(TOK_IF)) {
         return parseIfStmt();
     }

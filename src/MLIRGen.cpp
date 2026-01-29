@@ -190,6 +190,9 @@ LogicalResult MLIRGenerator::mlirGen(StmtAST &stmt) {
     if (auto *ifStmt = dynamic_cast<IfStmtAST*>(&stmt)) {
         return mlirGen(*ifStmt);
     }
+    if (auto *whileStmt = dynamic_cast<WhileStmtAST*>(&stmt)) {
+        return mlirGen(*whileStmt);
+    }
     if (auto *exprStmt = dynamic_cast<ExprStmtAST*>(&stmt)) {
         // Just evaluate the expression and discard the result
         Value result = mlirGen(*exprStmt->expr);
@@ -269,6 +272,102 @@ LogicalResult MLIRGenerator::mlirGen(IfStmtAST &stmt) {
                 return failure();
             }
         }
+    }
+    
+    return success();
+}
+
+LogicalResult MLIRGenerator::mlirGen(WhileStmtAST &stmt) {
+    auto loc = builder.getUnknownLoc();
+    
+    // Collect all variables that might be modified in the loop
+    // For now, we'll track all variables in current scope
+    std::vector<std::string> loopVars;
+    std::vector<Value> initValues;
+    std::vector<Type> loopVarTypes;
+    
+    for (const auto &var : scopeStack.back()) {
+        loopVars.push_back(var.first);
+        initValues.push_back(var.second);
+        loopVarTypes.push_back(var.second.getType());
+    }
+    
+    auto whileOp = builder.create<scf::WhileOp>(loc, loopVarTypes, initValues);
+    
+    // Before region - evaluate condition
+    OpBuilder::InsertionGuard guard(builder);
+    Block *beforeBlock = builder.createBlock(&whileOp.getBefore());
+    
+    // Add block arguments for loop-carried values
+    for (Type type : loopVarTypes) {
+        beforeBlock->addArgument(type, loc);
+    }
+    
+    builder.setInsertionPointToStart(beforeBlock);
+    
+    // Update scope with block arguments
+    pushScope();
+    for (size_t i = 0; i < loopVars.size(); i++) {
+        defineVariable(loopVars[i], beforeBlock->getArgument(i));
+    }
+    
+    Value condition = mlirGen(*stmt.condition);
+    if (!condition) {
+        popScope();
+        return failure();
+    }
+    
+    // Convert i32 to i1 if necessary
+    if (condition.getType().isInteger(32)) {
+        auto zero = builder.create<ConstantOp>(loc, 0.0);
+        auto cmpOp = builder.create<CmpOp>(loc, "ne", condition, zero->getResult(0));
+        condition = cmpOp->getResult(0);
+    }
+    
+    // Pass current values to after region
+    SmallVector<Value> beforeYieldValues;
+    for (size_t i = 0; i < loopVars.size(); i++) {
+        beforeYieldValues.push_back(lookupVariable(loopVars[i]));
+    }
+    
+    builder.create<scf::ConditionOp>(loc, condition, beforeYieldValues);
+    popScope();
+    
+    // After region - loop body
+    Block *afterBlock = builder.createBlock(&whileOp.getAfter());
+    
+    // Add block arguments for loop-carried values
+    for (Type type : loopVarTypes) {
+        afterBlock->addArgument(type, loc);
+    }
+    
+    builder.setInsertionPointToStart(afterBlock);
+    
+    // Update scope with block arguments
+    pushScope();
+    for (size_t i = 0; i < loopVars.size(); i++) {
+        defineVariable(loopVars[i], afterBlock->getArgument(i));
+    }
+    
+    for (auto &s : stmt.body) {
+        if (failed(mlirGen(*s))) {
+            popScope();
+            return failure();
+        }
+    }
+    
+    // Yield updated values back to before region
+    SmallVector<Value> afterYieldValues;
+    for (size_t i = 0; i < loopVars.size(); i++) {
+        afterYieldValues.push_back(lookupVariable(loopVars[i]));
+    }
+    
+    builder.create<scf::YieldOp>(loc, afterYieldValues);
+    popScope();
+    
+    // Update outer scope with final values
+    for (size_t i = 0; i < loopVars.size(); i++) {
+        defineVariable(loopVars[i], whileOp.getResult(i));
     }
     
     return success();

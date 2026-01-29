@@ -48,6 +48,7 @@ Token Lexer::identifier() {
     if (id == "return") return Token(TOK_RETURN, id, 0, line, startCol);
     if (id == "if") return Token(TOK_IF, id, 0, line, startCol);
     if (id == "else") return Token(TOK_ELSE, id, 0, line, startCol);
+    if (id == "while") return Token(TOK_WHILE, id, 0, line, startCol);
     
     // Otherwise it's an identifier
     return Token(TOK_IDENTIFIER, id, 0, line, startCol);

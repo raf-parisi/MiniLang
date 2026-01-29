@@ -154,6 +154,15 @@ public:
           elseBody(std::move(elseStmts)) {}
 };
 
+class WhileStmtAST : public StmtAST {
+public:
+    std::unique_ptr<ExprAST> condition;
+    std::vector<std::unique_ptr<StmtAST>> body;
+    
+    WhileStmtAST(std::unique_ptr<ExprAST> cond, std::vector<std::unique_ptr<StmtAST>> b)
+        : condition(std::move(cond)), body(std::move(b)) {}
+};
+
 class FunctionAST {
 public:
     std::string name;

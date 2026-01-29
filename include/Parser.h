@@ -28,6 +28,7 @@ private:
     std::unique_ptr<VarDeclAST> parseVarDecl();
     std::unique_ptr<ReturnStmtAST> parseReturnStmt();
     std::unique_ptr<IfStmtAST> parseIfStmt();
+    std::unique_ptr<WhileStmtAST> parseWhileStmt();
     
     std::unique_ptr<FunctionAST> parseFunctionDef();
 
