@@ -120,7 +120,7 @@ define i32 @main() {
 - ✅ Variabili e assegnamenti
 - ✅ Funzioni con parametri
 - ✅ Operatori di confronto (<, >, ==, !=)
-- ✅ Control flow (if-else)
+- ✅ Control flow (if-else, while)
 - ✅ Print statement
 
 ## Requisiti
@@ -129,5 +129,3 @@ define i32 @main() {
 - MLIR (incluso in LLVM)
 - CMake 3.20+
 - Clang/GCC con supporto C++17
-
-```
