@@ -9,6 +9,7 @@
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/Passes.h"  // NUOVO: per i pass di ottimizzazione
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"
@@ -208,7 +209,34 @@ private:
 std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm::LLVMContext &llvmContext) {
     MLIRContext *context = module.getContext();
     
+    // ========================================================================
+    // FASE 0: OTTIMIZZAZIONI MLIR (NUOVO!)
+    // ========================================================================
+    std::cout << "\n=== APPLYING MLIR OPTIMIZATIONS ===" << std::endl;
+    {
+        PassManager pm(context);
+        
+        // Pass di ottimizzazione built-in di MLIR
+        // 1. Canonicalizer: include constant folding, semplificazioni algebriche, DCE
+        pm.addPass(createCanonicalizerPass());
+        std::cout << "Added Canonicalizer pass (includes constant folding)" << std::endl;
+        
+        // 2. CSE: elimina espressioni comuni ridondanti
+        pm.addPass(createCSEPass());
+        std::cout << "Added CSE pass (common subexpression elimination)" << std::endl;
+        
+        if (failed(pm.run(module))) {
+            std::cerr << "Failed to run optimization passes" << std::endl;
+            return nullptr;
+        }
+    }
+    
+    std::cout << "\n=== After MLIR Optimizations ===" << std::endl;
+    module.dump();
+    
+    // ========================================================================
     // Step 1: Convert Mini functions to Func dialect
+    // ========================================================================
     {
         RewritePatternSet patterns(context);
         ConversionTarget target(*context);
@@ -230,7 +258,9 @@ std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm:
     std::cout << "\n=== After Mini to Func conversion ===" << std::endl;
     module.dump();
     
+    // ========================================================================
     // Step 2: Convert SCF to Control Flow
+    // ========================================================================
     PassManager pm(context);
     pm.addPass(createConvertSCFToCFPass());
     if (failed(pm.run(module))) {
@@ -241,7 +271,9 @@ std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm:
     std::cout << "\n=== After SCF to CF conversion ===" << std::endl;
     module.dump();
     
+    // ========================================================================
     // Step 3: Convert everything to LLVM dialect
+    // ========================================================================
     {
         LLVMTypeConverter typeConverter(context);
         RewritePatternSet patterns(context);
