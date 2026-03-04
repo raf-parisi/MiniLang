@@ -2,6 +2,8 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/OpImplementation.h"
+#include "mlir/IR/Matchers.h"
+#include "mlir/IR/PatternMatch.h"
 
 using namespace mlir;
 using namespace mlir::mini;
@@ -14,6 +16,14 @@ MiniDialect::MiniDialect(MLIRContext *context)
 void MiniDialect::initialize() {
     addOperations<ConstantOp, AddOp, SubOp, MulOp, DivOp, CmpOp, PrintOp, 
                   FuncOp, CallOp, ReturnOp>();
+}
+
+Operation *MiniDialect::materializeConstant(OpBuilder &builder, Attribute value,
+                                             Type type, Location loc) {
+    if (auto intAttr = value.dyn_cast<IntegerAttr>())
+        if (type.isInteger(32))
+            return builder.create<ConstantOp>(loc, static_cast<double>(intAttr.getInt()));
+    return nullptr;
 }
 
 void ConstantOp::build(OpBuilder &builder, OperationState &state, double value) {
@@ -139,4 +149,50 @@ void ReturnOp::build(OpBuilder &builder, OperationState &state, Value operand) {
 
 void ReturnOp::print(OpAsmPrinter &p) {
     p << " " << (*this)->getOperand(0) << " : " << (*this)->getOperand(0).getType();
+}
+
+// ============================================================================
+// Constant Folding
+// ============================================================================
+
+OpFoldResult ConstantOp::fold(ArrayRef<Attribute> operands) {
+    return (*this)->getAttrOfType<IntegerAttr>("value");
+}
+
+static bool getConstantInt(Attribute attr, int32_t &result) {
+    if (!attr) return false;
+    auto intAttr = attr.dyn_cast<IntegerAttr>();
+    if (!intAttr) return false;
+    result = static_cast<int32_t>(intAttr.getInt());
+    return true;
+}
+
+OpFoldResult AddOp::fold(ArrayRef<Attribute> operands) {
+    int32_t lhs, rhs;
+    if (getConstantInt(operands[0], lhs) && getConstantInt(operands[1], rhs))
+        return IntegerAttr::get((*this)->getResult(0).getType(), lhs + rhs);
+    return {};
+}
+
+OpFoldResult SubOp::fold(ArrayRef<Attribute> operands) {
+    int32_t lhs, rhs;
+    if (getConstantInt(operands[0], lhs) && getConstantInt(operands[1], rhs))
+        return IntegerAttr::get((*this)->getResult(0).getType(), lhs - rhs);
+    return {};
+}
+
+OpFoldResult MulOp::fold(ArrayRef<Attribute> operands) {
+    int32_t lhs, rhs;
+    if (getConstantInt(operands[0], lhs) && getConstantInt(operands[1], rhs))
+        return IntegerAttr::get((*this)->getResult(0).getType(), lhs * rhs);
+    return {};
+}
+
+OpFoldResult DivOp::fold(ArrayRef<Attribute> operands) {
+    int32_t lhs, rhs;
+    if (getConstantInt(operands[0], lhs) && getConstantInt(operands[1], rhs)) {
+        if (rhs == 0) return {};
+        return IntegerAttr::get((*this)->getResult(0).getType(), lhs / rhs);
+    }
+    return {};
 }

@@ -6,6 +6,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "llvm/ADT/ArrayRef.h"
 
 namespace mlir {
 namespace mini {
@@ -15,9 +16,12 @@ public:
     explicit MiniDialect(MLIRContext *context);
     static StringRef getDialectNamespace() { return "mini"; }
     void initialize();
+    Operation *materializeConstant(OpBuilder &builder, Attribute value,
+                                   Type type, Location loc) override;
 };
 
-class ConstantOp : public Op<ConstantOp, OpTrait::ZeroOperands, OpTrait::OneResult, OpTrait::ConstantLike> {
+class ConstantOp : public Op<ConstantOp, OpTrait::ZeroOperands, OpTrait::OneResult, 
+                              OpTrait::ConstantLike, MemoryEffectOpInterface::Trait> {
 public:
     using Op::Op;
     static StringRef getOperationName() { return "mini.constant"; }
@@ -29,45 +33,62 @@ public:
     static void build(OpBuilder &builder, OperationState &state, double value);
     double getValue();
     void print(OpAsmPrinter &p);
+    OpFoldResult fold(ArrayRef<Attribute> operands);
+    // Nessun effetto su memoria: permette al Canonicalizer di eliminare
+    // questa Op se il suo risultato non viene usato (DCE)
+    void getEffects(SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>> &effects) {}
 };
 
-class AddOp : public Op<AddOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult> {
+class AddOp : public Op<AddOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult,
+                         MemoryEffectOpInterface::Trait> {
 public:
     using Op::Op;
     static StringRef getOperationName() { return "mini.add"; }
     static ::llvm::ArrayRef<::llvm::StringRef> getAttributeNames() { return {}; }
     static void build(OpBuilder &builder, OperationState &state, Value lhs, Value rhs);
     void print(OpAsmPrinter &p);
+    OpFoldResult fold(ArrayRef<Attribute> operands);
+    void getEffects(SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>> &effects) {}
 };
 
-class SubOp : public Op<SubOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult> {
+class SubOp : public Op<SubOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult,
+                         MemoryEffectOpInterface::Trait> {
 public:
     using Op::Op;
     static StringRef getOperationName() { return "mini.sub"; }
     static ::llvm::ArrayRef<::llvm::StringRef> getAttributeNames() { return {}; }
     static void build(OpBuilder &builder, OperationState &state, Value lhs, Value rhs);
     void print(OpAsmPrinter &p);
+    OpFoldResult fold(ArrayRef<Attribute> operands);
+    void getEffects(SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>> &effects) {}
 };
 
-class MulOp : public Op<MulOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult> {
+class MulOp : public Op<MulOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult,
+                         MemoryEffectOpInterface::Trait> {
 public:
     using Op::Op;
     static StringRef getOperationName() { return "mini.mul"; }
     static ::llvm::ArrayRef<::llvm::StringRef> getAttributeNames() { return {}; }
     static void build(OpBuilder &builder, OperationState &state, Value lhs, Value rhs);
     void print(OpAsmPrinter &p);
+    OpFoldResult fold(ArrayRef<Attribute> operands);
+    void getEffects(SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>> &effects) {}
 };
 
-class DivOp : public Op<DivOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult> {
+class DivOp : public Op<DivOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult,
+                         MemoryEffectOpInterface::Trait> {
 public:
     using Op::Op;
     static StringRef getOperationName() { return "mini.div"; }
     static ::llvm::ArrayRef<::llvm::StringRef> getAttributeNames() { return {}; }
     static void build(OpBuilder &builder, OperationState &state, Value lhs, Value rhs);
     void print(OpAsmPrinter &p);
+    OpFoldResult fold(ArrayRef<Attribute> operands);
+    void getEffects(SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>> &effects) {}
 };
 
-class CmpOp : public Op<CmpOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult> {
+class CmpOp : public Op<CmpOp, OpTrait::NOperands<2>::Impl, OpTrait::OneResult,
+                         MemoryEffectOpInterface::Trait> {
 public:
     using Op::Op;
     static StringRef getOperationName() { return "mini.cmp"; }
@@ -86,6 +107,7 @@ public:
     
     StringRef getPredicate();
     void print(OpAsmPrinter &p);
+    void getEffects(SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>> &effects) {}
 };
 
 class PrintOp : public Op<PrintOp, OpTrait::OneOperand, OpTrait::ZeroResults> {

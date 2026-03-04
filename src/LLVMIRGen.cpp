@@ -216,14 +216,13 @@ std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm:
     {
         PassManager pm(context);
         
-        // Pass di ottimizzazione built-in di MLIR
-        // 1. Canonicalizer: include constant folding, semplificazioni algebriche, DCE
+        // Pass 1 - Canonicalizer: invoca fold() su ogni Op.
+        // Le operazioni aritmetiche con operandi costanti vengono sostituite
+        // da mini.constant tramite il materializeConstant del dialetto.
         pm.addPass(createCanonicalizerPass());
-        std::cout << "Added Canonicalizer pass (includes constant folding)" << std::endl;
         
-        // 2. CSE: elimina espressioni comuni ridondanti
+        // Pass 2 - CSE: elimina mini.constant duplicate con lo stesso valore.
         pm.addPass(createCSEPass());
-        std::cout << "Added CSE pass (common subexpression elimination)" << std::endl;
         
         if (failed(pm.run(module))) {
             std::cerr << "Failed to run optimization passes" << std::endl;
