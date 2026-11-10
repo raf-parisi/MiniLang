@@ -29,11 +29,18 @@ void Lexer::skipWhitespace() {
 Token Lexer::number() {
     int startCol = column;
     std::string num;
-    while (std::isdigit(peek()) || peek() == '.') {
+    bool hasDecimal = false;
+
+    while (std::isdigit(peek()) || (peek() == '.' && !hasDecimal)) {
+        if (peek() == '.') {
+            hasDecimal = true;
+        }
         num += advance();
     }
+
     return Token(TOK_NUMBER, num, std::stod(num), line, startCol);
 }
+
 
 Token Lexer::identifier() {
     int startCol = column;

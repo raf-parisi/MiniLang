@@ -16,6 +16,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include <iostream>
+#include "mlir/Transforms/ViewOpGraph.h"
+#include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 
 using namespace mlir;
 using namespace mlir::mini;
@@ -186,8 +189,8 @@ private:
             builder.setInsertionPointToStart(module.getBody());
             
             arrayType = LLVM::LLVMArrayType::get(builder.getI8Type(), value.size() + 1);
-            global = builder.create<LLVM::GlobalOp>(loc, arrayType, true, 
-                LLVM::Linkage::Internal, name, builder.getStringAttr(value + "\0"));
+            global = builder.create<LLVM::GlobalOp>(loc, arrayType, true,
+                    LLVM::Linkage::Internal, name, builder.getStringAttr(value.str() + '\0'));
         } else {
             arrayType = global.getType();
         }
@@ -223,7 +226,7 @@ std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm:
         
         // Pass 2 - CSE: elimina mini.constant duplicate con lo stesso valore.
         pm.addPass(createCSEPass());
-        
+        //pm.addPass(createPrintOpGraphPass(llvm::errs()));
         if (failed(pm.run(module))) {
             std::cerr << "Failed to run optimization passes" << std::endl;
             return nullptr;
@@ -273,6 +276,7 @@ std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm:
     // ========================================================================
     // Step 3: Convert everything to LLVM dialect
     // ========================================================================
+ 
     {
         LLVMTypeConverter typeConverter(context);
         RewritePatternSet patterns(context);
@@ -282,9 +286,12 @@ std::unique_ptr<llvm::Module> mlir::mini::convertToLLVMIR(ModuleOp module, llvm:
         target.addLegalDialect<LLVM::LLVMDialect>();
         target.addIllegalDialect<MiniDialect>();
         target.addIllegalDialect<func::FuncDialect>();
+        target.addIllegalDialect<arith::ArithDialect>(); 
         
         populateFuncToLLVMConversionPatterns(typeConverter, patterns);
         cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
+        arith::populateArithToLLVMConversionPatterns(typeConverter, patterns); // <-- ADD THIS
+        
         patterns.add<ConstantOpLowering, AddOpLowering, SubOpLowering, 
                      MulOpLowering, DivOpLowering, CmpOpLowering, PrintOpLowering>(context);
         

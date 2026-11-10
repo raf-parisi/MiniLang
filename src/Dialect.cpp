@@ -38,7 +38,8 @@ double ConstantOp::getValue() {
 }
 
 void ConstantOp::print(OpAsmPrinter &p) {
-    p << " " << getValue() << " : " << (*this)->getResult(0).getType();
+    int32_t val = (*this)->getAttrOfType<IntegerAttr>("value").getInt();
+    p << " " << val << " : " << (*this)->getResult(0).getType();
 }
 
 void AddOp::build(OpBuilder &builder, OperationState &state, Value lhs, Value rhs) {

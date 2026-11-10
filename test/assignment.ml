@@ -4,3 +4,6 @@ z = x + y;
 print z;
 a = x * y - 2;
 print a;
+
+x = 10;
+print x;
